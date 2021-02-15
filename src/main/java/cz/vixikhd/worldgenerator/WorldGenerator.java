@@ -2,8 +2,6 @@ package cz.vixikhd.worldgenerator;
 
 import net.minecraft.server.v1_8_R3.BiomeBase;
 import org.apache.commons.io.FileUtils;
-import org.bukkit.World;
-import org.bukkit.WorldCreator;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;

@@ -11,7 +11,6 @@ import org.bukkit.craftbukkit.v1_8_R3.CraftWorld;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 public class WorldGenerationTask implements Runnable {
@@ -28,9 +27,12 @@ public class WorldGenerationTask implements Runnable {
 
     private World world;
 
+    private boolean isGenerated = false;
     private final List<Long> generating = new ArrayList<>();
-    private final List<Long> populating = new ArrayList<>();
     private final List<Long> generated = new ArrayList<>();
+
+    private final List<Long> populating = new ArrayList<>();
+    private final List<Long> populated = new ArrayList<>();
 
     public WorldGenerationTask(WorldGenerator plugin, String name) {
         this.plugin = plugin;
@@ -45,7 +47,7 @@ public class WorldGenerationTask implements Runnable {
 
     @Override
     public void run() {
-        if(this.generated.size() == CHUNK_COUNT) {
+        if(this.populated.size() == CHUNK_COUNT) {
             this.plugin.getServer().getScheduler().cancelTask(this.plugin.taskIds.get(this));
 
             this.world.save();
@@ -61,50 +63,81 @@ public class WorldGenerationTask implements Runnable {
             return;
         }
 
-        int i = this.generating.size() + this.populating.size();
-        for(int x = -SQUARE_SIZE; x <= SQUARE_SIZE; x++) {
-            for(int z = -SQUARE_SIZE; z <= SQUARE_SIZE; z++) {
-                long hash = this.chunkHash(x, z);
-                if(this.generated.contains(hash)) {
-                    continue; // We don't care already generated chunks
-                }
+        if(!this.isGenerated) {
+            if(this.generated.size() == CHUNK_COUNT) {
+                this.isGenerated = true;
+                return;
+            }
 
-                if(this.populating.contains(hash)) {
-                    if(this.isChunkPopulated(x, z)) {
-                        i--;
-
-                        this.generated.add(hash);
-                        this.populating.remove(hash);
-
-                        this.world.getChunkAt(x, z).unload();
-
-                        int percentage = (this.generated.size() * 100) / CHUNK_COUNT;
-                        System.out.println("Generated chunk at " + x + ":" + z + " (" + percentage + "% done)");
+            int i = this.generating.size();
+            for(int x = -SQUARE_SIZE; x <= SQUARE_SIZE; x++) {
+                for(int z = -SQUARE_SIZE; z <= SQUARE_SIZE; z++) {
+                    long hash = this.chunkHash(x, z);
+                    if(this.generated.contains(hash)) {
+                        continue; // We don't care already generated chunks
                     }
 
-                    continue; // We must not generate that chunk again
-                }
+                    if(this.generating.contains(hash)) {
+                        if(this.isChunkGenerated(x, z)) {
+                            i--;
+                            
+                            this.generated.add(hash);
+                            this.generating.remove(hash);
 
-                if(this.generating.contains(hash)) {
-                    if(this.isChunkGenerated(x, z)) {
-                        this.populating.add(hash);
-                        this.generating.remove(hash);
+                            this.world.getChunkAt(x, z).unload();
 
-                        this.populateChunk(x, z);
+                            int percentage = (this.generated.size() * 100) / CHUNK_COUNT;
+                            System.out.println("Generated chunk at " + x + ":" + z + " (" + percentage + "% done)");
+                        }
+
+                        continue; // We must not generate that chunk again
                     }
 
-                    continue; // We must not generate that chunk again
-                }
+                    if(i == MAX_CHUNK_COUNT) {
+                        return; // Server is generating max chunk count, so we should block requesting another chunks
+                    }
 
-                if(i == MAX_CHUNK_COUNT) {
-                    return; // Server is generating max chunk count, so we should block requesting another chunks
+                    this.generating.add(hash);
+                    this.generateChunk(x, z);
+                    i++;
                 }
+            }
+        } else {
+            int i = this.populating.size();
+            for(int x = -SQUARE_SIZE; x <= SQUARE_SIZE; x++) {
+                for(int z = -SQUARE_SIZE; z <= SQUARE_SIZE; z++) {
+                    long hash = this.chunkHash(x, z);
+                    if(this.populated.contains(hash)) {
+                        continue; // We don't care already generated chunks
+                    }
 
-                this.generating.add(hash);
-                this.generateChunk(x, z);
-                i++;
+                    if(this.populating.contains(hash)) {
+                        if(this.isChunkPopulated(x, z)) {
+                            i--;
+
+                            this.populated.add(hash);
+                            this.populating.remove(hash);
+
+                            this.world.getChunkAt(x, z).unload();
+
+                            int percentage = (this.populated.size() * 100) / CHUNK_COUNT;
+                            System.out.println("Populated chunk at " + x + ":" + z + " (" + percentage + "% done)");
+                        }
+
+                        continue; // We must not generate that chunk again
+                    }
+
+                    if(i == MAX_CHUNK_COUNT) {
+                        return; // Server is generating max chunk count, so we should block requesting another chunks
+                    }
+
+                    this.populating.add(hash);
+                    this.populateChunk(x, z);
+                    i++;
+                }
             }
         }
+        
     }
 
     private void generateChunk(int x, int z) {
@@ -113,6 +146,18 @@ public class WorldGenerationTask implements Runnable {
 
     private void populateChunk(int x, int z) {
         try {
+            // Loading chunks around
+            List<Long> tempLoadedChunks = new ArrayList<>();
+            for(int xx = -1; xx <= 1; xx++) {
+                for(int zz = -1; zz <= 1; zz++) {
+                    if(!this.world.isChunkLoaded(x + xx, z + zz)) {
+                        tempLoadedChunks.add(this.chunkHash(x + xx, z + zz));
+                        this.world.loadChunk(x + xx, z + zz);
+                    }
+                }
+            }
+
+            this.world.loadChunk(x, z, false);
             CraftWorld craftWorld = (CraftWorld)this.world;
 
             Field worldField = (craftWorld).getClass().getDeclaredField("world");
@@ -125,6 +170,15 @@ public class WorldGenerationTask implements Runnable {
 
             // why is populate() method called getChunkAt() ??
             provider.getChunkAt(provider, x, z);
+
+            // Unloading chunks around
+            for(int xx = -1; xx <= 1; xx++) {
+                for(int zz = -1; zz <= 1; zz++) {
+                    if(tempLoadedChunks.contains(this.chunkHash(x + xx, z + zz))) {
+                        this.world.unloadChunk(x + xx, z + zz);
+                    }
+                }
+            }
         }
         catch (NoSuchFieldException | IllegalAccessException exception) {
             exception.printStackTrace();
