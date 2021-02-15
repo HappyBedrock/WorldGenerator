@@ -1,0 +1,10 @@
+name: WorldGenerator
+version: 1.0
+author: VixikHD
+description: Plugin that generates 500x500 world for UHC
+main: cz.vixikhd.worldgenerator.WorldGenerator
+
+commands:
+  gen:
+    description: Generates world
+    usage: /gen <name>
