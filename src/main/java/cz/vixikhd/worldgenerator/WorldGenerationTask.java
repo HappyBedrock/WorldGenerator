@@ -150,6 +150,10 @@ public class WorldGenerationTask implements Runnable {
             List<Long> tempLoadedChunks = new ArrayList<>();
             for(int xx = -1; xx <= 1; xx++) {
                 for(int zz = -1; zz <= 1; zz++) {
+                    if(Math.abs(x + xx) > SQUARE_SIZE || Math.abs(z + zz) > SQUARE_SIZE) {
+                        continue; // Blocks outside border
+                    }
+
                     if(!this.world.isChunkLoaded(x + xx, z + zz)) {
                         tempLoadedChunks.add(this.chunkHash(x + xx, z + zz));
                         this.world.loadChunk(x + xx, z + zz);
@@ -157,7 +161,6 @@ public class WorldGenerationTask implements Runnable {
                 }
             }
 
-            this.world.loadChunk(x, z, false);
             CraftWorld craftWorld = (CraftWorld)this.world;
 
             Field worldField = (craftWorld).getClass().getDeclaredField("world");
@@ -172,12 +175,8 @@ public class WorldGenerationTask implements Runnable {
             provider.getChunkAt(provider, x, z);
 
             // Unloading chunks around
-            for(int xx = -1; xx <= 1; xx++) {
-                for(int zz = -1; zz <= 1; zz++) {
-                    if(tempLoadedChunks.contains(this.chunkHash(x + xx, z + zz))) {
-                        this.world.unloadChunk(x + xx, z + zz);
-                    }
-                }
+            for(long hash : tempLoadedChunks) {
+                this.world.unloadChunk(this.getHashX(hash), this.getHashZ(hash));
             }
         }
         catch (NoSuchFieldException | IllegalAccessException exception) {
@@ -214,5 +213,13 @@ public class WorldGenerationTask implements Runnable {
 
     private long chunkHash(int x, int z) {
         return (((long)x) << 32) | (z & 0xffffffffL);
+    }
+
+    private int getHashX(long hash) {
+        return (int) (hash >> 32);
+    }
+
+    private int getHashZ(long hash) {
+        return (int) hash;
     }
 }
