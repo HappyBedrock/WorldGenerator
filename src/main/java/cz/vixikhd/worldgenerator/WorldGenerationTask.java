@@ -15,6 +15,8 @@ import java.util.List;
 
 public class WorldGenerationTask implements Runnable {
 
+    public static final boolean POPULATE_CHUNKS = false;
+
     public static final int SQUARE_SIZE = 50;
     public static final int MAX_CHUNK_COUNT = 30;
 
@@ -47,8 +49,8 @@ public class WorldGenerationTask implements Runnable {
 
     @Override
     public void run() {
-        if(this.populated.size() == CHUNK_COUNT) {
-            this.plugin.getServer().getScheduler().cancelTask(this.plugin.taskIds.get(this));
+        if(this.populated.size() == CHUNK_COUNT || (this.generated.size() == CHUNK_COUNT && !POPULATE_CHUNKS)) {
+            this.plugin.getServer().getScheduler().cancelTask(this.plugin.taskIds.remove(this));
 
             this.world.save();
             this.plugin.getServer().unloadWorld(this.world, true);
