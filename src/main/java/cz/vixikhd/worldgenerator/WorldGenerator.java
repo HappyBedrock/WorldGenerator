@@ -11,18 +11,15 @@ import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
 
 public class WorldGenerator extends JavaPlugin implements CommandExecutor {
-
-    private static WorldGenerator instance;
 
     public Map<WorldGenerationTask, Integer> taskIds = new HashMap<>();
 
     @Override
     public void onEnable() {
-        WorldGenerator.instance = this;
-
         this.getCommand("gen").setExecutor(this);
 
         try {
@@ -73,9 +70,5 @@ public class WorldGenerator extends JavaPlugin implements CommandExecutor {
 
         WorldGenerationTask task = new WorldGenerationTask(this, name);
         this.taskIds.put(task, this.getServer().getScheduler().scheduleSyncRepeatingTask(this, task, 5, 2));
-    }
-
-    public static WorldGenerator getInstance() {
-        return WorldGenerator.instance;
     }
 }
