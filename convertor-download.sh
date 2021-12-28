@@ -13,6 +13,8 @@ tar -xzvf Linux/PHP_Linux-x86_64.tar.gz
 rm -rf php.zip
 rm -rf Linux
 
-curl -o WorldConvertor.phar 'https://github.com/HappyBedrock/WorldGenerator/releases/download/1.0.0-UHC/WorldConvertor.phar'
+curl -L -o WorldConvertor.phar 'https://github.com/HappyBedrock/WorldGenerator/releases/download/1.0.0-UHC/WorldConvertor.phar'
+
+\bin\php7\bin\php WorldConvertor.phar --path ''
 
 cd ..
