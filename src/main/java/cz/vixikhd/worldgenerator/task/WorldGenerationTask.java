@@ -78,7 +78,7 @@ public class WorldGenerationTask implements Runnable {
         // Lapis spred (orig. 16)
         settings.aA = 25;
 
-        this.world = this.plugin.getServer().createWorld(WorldCreator.name(this.name).generatorSettings(""));
+        this.world = this.plugin.getServer().createWorld(WorldCreator.name(this.name).generatorSettings(settings.toString()));
 
         int i = 0;
         for(int x = -SQUARE_SIZE; x <= SQUARE_SIZE; x++) {
